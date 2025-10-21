@@ -1,8 +1,10 @@
-# Windows transparent account picture
+# Windows account picture changer
 
 Finally get rid of that black border around transparent images for your Windows account picture!
 
 ![before](images/before.png)![after](images/after.png)
+
+Also allows you to use `.gif` files as your profile image! And they move!
 
 ## How to use
 

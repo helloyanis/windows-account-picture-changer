@@ -3,6 +3,8 @@
   Downloads PSexec if needed, then runs a PowerShell payload under SYSTEM (via PsExec -s).
 .DESCRIPTION
   This payloads creates the key HKLM\...\AccountPicture\Users\<SID> & writes values ImageXXX.
+  It allows you to use .png filew with transparency, .gif files, and other format of images as your account picture!
+  Usually, Windows converts it to a .jpg file.
 .NOTES
   - Run this as administrator.
   - PsExec is from Microsoft Sysinternals.
