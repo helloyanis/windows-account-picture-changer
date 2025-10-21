@@ -8,7 +8,7 @@ Also allows you to use `.gif` files as your profile image! And they move!
 
 ## How to use
 
-- [Download the PowerShell script](account-picture-changer.ps1)
+- [Download the PowerShell script](account-picture-changer.ps1) (Click on the "Download raw file" button near the top right)
 - In your file browser, right-click on the file you just downloaded and select "Copy file path".
 - Open an administrator terminal by doing a right-click on the windows icon in your taskbar, and select `Terminal (Administrator)`
 - In the terminal, type a dot `.` then right-click in the window to paste the path of the script you copied earlier. You should have a command like
