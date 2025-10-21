@@ -51,3 +51,7 @@ No! You can check both of the files with a text editor like notepad to see they 
 > ❓ How can I revert to the profile picture I had before?
 
 You can set it again via the Windows settings as normal!
+
+### Check out my other stuff!
+
+You can follow me on <a rel="me" href="https://github.com/helloyanis/">GitHub</a> for projects and code related stuff, and on <a rel="me" href="https://furries.club/@helloyanis">Mastodon</a> for everything else!
