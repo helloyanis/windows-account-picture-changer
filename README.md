@@ -13,7 +13,7 @@ Also allows you to use `.gif` files as your profile image! And they move!
 - Open an administrator terminal by doing a right-click on the windows icon in your taskbar, and select `Terminal (Administrator)`
 - In the terminal, type a dot `.` then right-click in the window to paste the path of the script you copied earlier. You should have a command like
 ```ps1
-."C:\Users\you\Downloads\account-picture-changer.ps1
+."C:\Users\you\Downloads\account-picture-changer.ps1"
 ```
 - Press enter, the script should start!
 
