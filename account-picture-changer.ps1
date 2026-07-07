@@ -8,11 +8,11 @@
   It allows you to use .png filew with transparency, .gif files, and other format of images as your account picture!
   Usually, Windows converts it to a .jpg file.
 .EXAMPLE
-    .\updateAccountImageTypes.ps1
+    .\account-picture-changer.ps1
     Runs the script as admin and opens an image picker dialog.
 
 .EXAMPLE
-    .\updateAccountImageTypes.ps1 -ImagePath "C:\Users\<YourUser>\Pictures\avatar.png"
+    .\account-picture-changer.ps1 -ImagePath "C:\Users\<YourUser>\Pictures\avatar.png"
     Runs the script as admin and uses the provided local image path directly.
 .NOTES
   - Run this as administrator.
@@ -30,7 +30,7 @@ $expectedPsExecSha256 = '078163D5C16F64CAA5A14784323FD51451B8C831C73396B967B4E35
 # TODO: Need a better way to handle hash changes with Sysinternal version updates. 
 $sysinternalsDownloadPage = 'https://learn.microsoft.com/en-us/sysinternals/downloads/'
 $auditLogDir = Join-Path -Path $env:ProgramData -ChildPath 'AccountPictureScript'
-$auditLogPath = Join-Path -Path $auditLogDir -ChildPath 'updateAccountImageTypes.log'
+$auditLogPath = Join-Path -Path $auditLogDir -ChildPath 'account-picture-changer.log'
 
 # Parameters
 # Get the user SID of the current user
