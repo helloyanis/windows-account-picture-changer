@@ -27,6 +27,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $expectedPsExecSha256 = '078163D5C16F64CAA5A14784323FD51451B8C831C73396B967B4E35E6879937B' # for version 2.43.0.0
+# TODO: Need a better way to handle hash changes with Sysinternal version updates. 
 $sysinternalsDownloadPage = 'https://learn.microsoft.com/en-us/sysinternals/downloads/'
 $auditLogDir = Join-Path -Path $env:ProgramData -ChildPath 'AccountPictureScript'
 $auditLogPath = Join-Path -Path $auditLogDir -ChildPath 'updateAccountImageTypes.log'
