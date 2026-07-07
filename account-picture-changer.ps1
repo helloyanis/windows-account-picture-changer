@@ -1,68 +1,144 @@
 <#
 .SYNOPSIS
-  Downloads PSexec if needed, then runs a PowerShell payload under SYSTEM (via PsExec -s).
+    Validates local PsExec and runs a PowerShell payload under SYSTEM (via PsExec -s).
 .DESCRIPTION
+    PsExec must already be installed locally at Program Files\SysinternalsSuite\PsExec.exe.
+    If missing, the script redirects to the official Sysinternals download documentation page.
   This payloads creates the key HKLM\...\AccountPicture\Users\<SID> & writes values ImageXXX.
   It allows you to use .png filew with transparency, .gif files, and other format of images as your account picture!
   Usually, Windows converts it to a .jpg file.
+.EXAMPLE
+    .\account-picture-changer.ps1
+    Runs the script as admin and opens an image picker dialog.
+
+.EXAMPLE
+    .\account-picture-changer.ps1 -ImagePath "C:\Users\<YourUser>\Pictures\avatar.png"
+    Runs the script as admin and uses the provided local image path directly.
 .NOTES
   - Run this as administrator.
   - PsExec is from Microsoft Sysinternals.
 #>
 
+param(
+        [string]$ImagePath = ''
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+$expectedPsExecSha256 = '078163D5C16F64CAA5A14784323FD51451B8C831C73396B967B4E35E6879937B' # for version 2.43.0.0
+# TODO: Need a better way to handle hash changes with Sysinternal version updates. 
+$sysinternalsDownloadPage = 'https://learn.microsoft.com/en-us/sysinternals/downloads/'
+$auditLogDir = Join-Path -Path $env:ProgramData -ChildPath 'AccountPictureScript'
+$auditLogPath = Join-Path -Path $auditLogDir -ChildPath 'account-picture-changer.log'
 
 # Parameters
 # Get the user SID of the current user
 $payloadSid = (New-Object System.Security.Principal.NTAccount($env:UserName)).Translate([System.Security.Principal.SecurityIdentifier]).Value
-$imgPath = ''
+$imgPath = $ImagePath
 $sizes = @('Image96','Image448','Image32','Image40','Image48','Image192','Image240','Image64','Image208','Image424','Image1080')
 
 # PsExec path
-$psToolsUrl = 'https://download.sysinternals.com/files/PSTools.zip'
-$localToolsDir = Join-Path -Path $env:ProgramFiles -ChildPath 'PsTools'
+$localToolsDir = Join-Path -Path $env:ProgramFiles -ChildPath 'SysinternalsSuite'
 $psexecPath = Join-Path -Path $localToolsDir -ChildPath 'PsExec.exe'
 
-# Utility function : Checks if Psexec is present, downloads it otherwise. Psexec is needed in order to have write access to the registry key.
+function Write-AuditLog {
+    param(
+        [string]$Message
+    )
+
+    if (-not (Test-Path -LiteralPath $auditLogDir)) {
+        New-Item -Path $auditLogDir -ItemType Directory -Force | Out-Null
+    }
+
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    Add-Content -Path $auditLogPath -Value "[$timestamp] $Message"
+}
+
+function Test-ImagePathSecurity {
+    param(
+        [string]$Path
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        Write-Warning "Image path is empty."
+        return $false
+    }
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        Write-Warning "Image file does not exist: $Path"
+        return $false
+    }
+
+    if ($Path -match '^[\\]{2}') {
+        Write-Warning "UNC/network paths are not allowed for image selection: $Path"
+        return $false
+    }
+
+    $allowedExt = @('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+    $ext = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
+    if ($allowedExt -notcontains $ext) {
+        Write-Warning "Unsupported image extension '$ext'. Allowed: $($allowedExt -join ', ')"
+        return $false
+    }
+
+    try {
+        $resolved = Resolve-Path -LiteralPath $Path -ErrorAction Stop
+        $root = [System.IO.Path]::GetPathRoot($resolved.Path)
+        if ([string]::IsNullOrWhiteSpace($root)) {
+            Write-Warning "Could not determine drive root for image path: $Path"
+            return $false
+        }
+
+        $driveLetter = $root.TrimEnd('\\').TrimEnd(':')
+        $driveDeviceId = '{0}:' -f $driveLetter
+        $drive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$driveDeviceId'"
+        if ($null -eq $drive) {
+            Write-Warning "Could not verify drive type for image path: $Path"
+            return $false
+        }
+
+        # 3 = local fixed disk
+        if ($drive.DriveType -ne 3) {
+            Write-Warning "Image must be on a local fixed disk. Current drive type: $($drive.DriveType)"
+            return $false
+        }
+    } catch {
+        Write-Warning "Failed to validate image path security constraints: $_"
+        return $false
+    }
+
+    return $true
+}
+
+# Utility function : Checks if Psexec is present and validates hash.
 function Ensure-PsExec {
     param(
-        [string]$Url,
-        [string]$DestDir,
-        [string]$PsexecExePath
+        [string]$PsexecExePath,
+        [string]$ExpectedSha256,
+        [string]$DownloadInfoUrl
     )
-    if (Test-Path $PsexecExePath) {
-        Write-Host "PsExec found : $PsexecExePath"
-        return $true
-    }
-
-    Write-Host "PsExec not found. Downloading it..."
-    $tmpZip = Join-Path $env:TEMP ('PSTools_' + [guid]::NewGuid().ToString() + '.zip')
-
-    try {
-        Invoke-WebRequest -Uri $Url -OutFile $tmpZip -UseBasicParsing -TimeoutSec 60
-    } catch {
-        Write-Error "Failed to download PsTools from $Url : $_"
+    if (-not (Test-Path -LiteralPath $PsexecExePath)) {
+        Write-Warning "PsExec not found at expected path: $PsexecExePath"
+        Write-Warning "Download Sysinternals tools from: $DownloadInfoUrl"
+        Write-AuditLog "PsExec missing at expected path. User directed to official download page."
         return $false
     }
 
-    Write-Host "Extracting to $DestDir..."
     try {
-        if (!(Test-Path $DestDir)) { New-Item -Path $DestDir -ItemType Directory | Out-Null }
-        Expand-Archive -LiteralPath $tmpZip -DestinationPath $DestDir -Force
-    } catch {
-        Write-Error "Extraction failed : $_"
-        Remove-Item -LiteralPath $tmpZip -ErrorAction SilentlyContinue
-        return $false
-    }
+        $actualHash = (Get-FileHash -LiteralPath $PsexecExePath -Algorithm SHA256).Hash.ToUpperInvariant()
+        if ($actualHash -ne $ExpectedSha256.ToUpperInvariant()) {
+            Write-Error "PsExec hash mismatch. Expected: $ExpectedSha256, Actual: $actualHash"
+            Write-AuditLog "PsExec hash validation failed. Expected=$ExpectedSha256 Actual=$actualHash"
+            return $false
+        }
 
-    Remove-Item -LiteralPath $tmpZip -ErrorAction SilentlyContinue
-
-    if (Test-Path $PsexecExePath) {
-        Write-Host "PsExec installed at $DestDir"
+        Write-Host "PsExec hash validated."
+        Write-AuditLog "PsExec hash validation succeeded. Hash=$actualHash"
         return $true
-    } else {
-        Write-Error "PsExec could not be found after extracting it."
+    } catch {
+        Write-Error "Failed to validate PsExec hash: $_"
+        Write-AuditLog "PsExec hash validation failed due to error: $_"
         return $false
     }
 }
@@ -126,9 +202,11 @@ function Select-ImageFile {
 }
 
 # --- Main ---
+Write-AuditLog "Script start. User=$env:UserName SID=$payloadSid"
 Write-Host "Checking execution rights..."
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
     Write-Warning "This script must be run as an administrator."
+    Write-AuditLog "Script stopped: not running as administrator."
     exit 1
 }
 
@@ -143,13 +221,22 @@ if ([string]::IsNullOrWhiteSpace($imgPath)) {
     }
 }
 
+if (-not (Test-ImagePathSecurity -Path $imgPath)) {
+    Write-Error "Image path failed security validation."
+    Write-AuditLog "Script stopped: image path validation failed. Path=$imgPath"
+    exit 1
+}
+
+Write-AuditLog "Image path validation passed. Path=$imgPath"
+
 Write-Host "Using image file : $imgPath for SID : $payloadSid , is this OK?" -ForegroundColor Cyan
 
 Pause
 
 # 1) Ensure PsExec
-if (-not (Ensure-PsExec -Url $psToolsUrl -DestDir $localToolsDir -PsexecExePath $psexecPath)) {
+if (-not (Ensure-PsExec -PsexecExePath $psexecPath -ExpectedSha256 $expectedPsExecSha256 -DownloadInfoUrl $sysinternalsDownloadPage)) {
     Write-Error "Could not seem to be able to use psexec."
+    Write-AuditLog "Script stopped: PsExec validation failed."
     exit 1
 }
 
@@ -167,11 +254,14 @@ $psexecCmd = "`"$psexecPath`" -accepteula -s -i powershell.exe -NoProfile -Execu
 
 Write-Host "Running the payload under SYSTEM via PsExec..."
 Write-Host $psexecCmd
+Write-Host "WARNING: This script uses PowerShell -ExecutionPolicy Bypass for the SYSTEM-run payload. Continue only if you trust this script and environment." -ForegroundColor Yellow
+Write-AuditLog "Warning shown: ExecutionPolicy Bypass is in use for SYSTEM payload execution."
 $proc = Start-Process -FilePath $psexecPath -ArgumentList @('-accepteula','-s','-i','powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',$payloadFile) -Wait -PassThru
 
 # Get the exit code
 $exitCode = $proc.ExitCode
 Write-Host "PsExec process finished with exit code : $exitCode"
+Write-AuditLog "PsExec execution finished. ExitCode=$exitCode Payload=$payloadFile"
 
 # 4) Attempt to check if the values were changed correctly
 try {
@@ -196,8 +286,10 @@ try {
 # 5) Clean up payload
 try {
     Remove-Item -LiteralPath $payloadFile -ErrorAction SilentlyContinue
+    Write-AuditLog "Payload cleanup attempted. Path=$payloadFile"
 } catch { }
 
 Write-Host "Finished. Remember to disable account synchronization in Windows settings so the picture does not revert back to the one of your Microsoft account." -ForegroundColor Green
 Write-Host "Log out or restart your computer to see the changes." -ForegroundColor Yellow
+Write-AuditLog "Script end. ExitCode=$exitCode"
 exit $exitCode
