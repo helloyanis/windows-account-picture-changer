@@ -1,4 +1,12 @@
 <#
+Copyright © 2026 🦊 helloyanis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 .SYNOPSIS
   Downloads PSexec if needed, then runs a PowerShell payload under SYSTEM (via PsExec -s).
 .DESCRIPTION
@@ -8,6 +16,8 @@
 .NOTES
   - Run this as administrator.
   - PsExec is from Microsoft Sysinternals.
+.LINK
+  https://github.com/helloyanis/windows-account-picture-changer
 #>
 
 Set-StrictMode -Version Latest
@@ -15,7 +25,13 @@ $ErrorActionPreference = 'Stop'
 
 # Parameters
 # Get the user SID of the current user
-$payloadSid = (New-Object System.Security.Principal.NTAccount($env:UserName)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$payloadSid = ''
+try {
+    $payloadSid = (New-Object System.Security.Principal.NTAccount($env:UserName)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+} catch {
+    Write-Error "Failed to get the SID of the current user : $_ Are you running this on Windows?"
+    exit 1
+}
 $imgPath = ''
 $sizes = @('Image96','Image448','Image32','Image40','Image48','Image192','Image240','Image64','Image208','Image424','Image1080')
 
@@ -196,8 +212,29 @@ try {
 # 5) Clean up payload
 try {
     Remove-Item -LiteralPath $payloadFile -ErrorAction SilentlyContinue
-} catch { }
+    Write-Host "Payload file deleted : $payloadFile" -ForegroundColor Green
+} catch {
+    Write-Warning "Couldn't delete the payload file : $_"
+ }
 
 Write-Host "Finished. Remember to disable account synchronization in Windows settings so the picture does not revert back to the one of your Microsoft account." -ForegroundColor Green
 Write-Host "Log out or restart your computer to see the changes." -ForegroundColor Yellow
+Write-Host "Press enter if you wantto delete PSExec. Otherwise, close this window." -ForegroundColor Yellow
+Pause
+
+# Cleanup PsExec if desired
+try {
+    Remove-Item -LiteralPath $psexecPath -ErrorAction SilentlyContinue
+    Write-Host "PsExec deleted : $psexecPath"
+    # Optionally remove the directory if empty
+    if ((Get-ChildItem -Path $localToolsDir -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0) {
+        Remove-Item -LiteralPath $localToolsDir -ErrorAction SilentlyContinue
+        Write-Host "PsTools directory deleted : $localToolsDir" -ForegroundColor Green
+    }
+} catch {
+    Write-Warning "Couldn't delete PsExec or its directory : $_"
+}
+
+Write-Host "Exiting with code $exitCode"
+
 exit $exitCode
