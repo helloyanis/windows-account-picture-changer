@@ -1,5 +1,7 @@
 # Windows account picture changer
 
+Use gif or transparent images as your windows avatar!
+
 Finally get rid of that black border around transparent images for your Windows account picture!
 
 ![before](images/before.png)![after](images/after.png)

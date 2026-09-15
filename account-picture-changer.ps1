@@ -12,7 +12,7 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 .DESCRIPTION
   This payloads creates the key HKLM\...\AccountPicture\Users\<SID> & writes values ImageXXX.
   It allows you to use .png filew with transparency, .gif files, and other format of images as your account picture!
-  Usually, Windows converts it to a .jpg file.
+  Without this, Windows converts it to a .jpg file.
 .NOTES
   - Run this as administrator.
   - PsExec is from Microsoft Sysinternals.
@@ -22,6 +22,8 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+Write-Host "`e]8;;https://github.com/helloyanis/windows-account-picture-changer`e\Windows Account Picture Changer by 🦊 helloyanis`e]8;;`e\" -ForegroundColor Cyan
 
 # Parameters
 # Get the user SID of the current user
